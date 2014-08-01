@@ -9,7 +9,7 @@ from mock import patch, Mock
 from core.models import Article, Blog
 
 
-def timeit(method):
+def time_method(method):
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
@@ -20,8 +20,19 @@ def timeit(method):
     return timed
 
 
+def time_test_methods(cls):
+    class NewClass(cls):
+        def __getattribute__(self, attr_name):
+            obj = super(NewClass, self).__getattribute__(attr_name)
+            if hasattr(obj, '__call__') and attr_name.startswith('test'):
+                return time_method(obj)
+            return obj
+
+    return NewClass
+
+
+@time_test_methods
 class TestGetArticlesBlankTitle(TestCase):
-    @timeit
     def test_vanilla_django(self):
         """
         0.02883 sec [sqlite in memory]
@@ -41,7 +52,6 @@ class TestGetArticlesBlankTitle(TestCase):
 
         self.assertSetEqual(articles, {three})
 
-    @timeit
     def test_model_mommy(self):
         """
         0.00435 sec [sqlite in memory]
@@ -53,7 +63,6 @@ class TestGetArticlesBlankTitle(TestCase):
 
         self.assertSetEqual(articles, {three})
 
-    @timeit
     @patch('core.models.Article.objects')
     def test_patch_orm(self, objects):
         """
@@ -68,8 +77,8 @@ class TestGetArticlesBlankTitle(TestCase):
         objects.filter.assert_called_with(title='')
 
 
+@time_test_methods
 class TestUpdateAllArticlesWithBlankTitle(TestCase):
-    @timeit
     def test_model_mommy_v1_v2_v3(self):
         """
         v1 0.00429 sec [sqlite in memory]
@@ -86,7 +95,6 @@ class TestUpdateAllArticlesWithBlankTitle(TestCase):
 
         self.assertSetEqual(new_val_ids, {three.id, four.id})
 
-    @timeit
     @patch('core.models.Article.objects')
     def test_patch_orm_v1(self, objects):
         """
@@ -100,7 +108,6 @@ class TestUpdateAllArticlesWithBlankTitle(TestCase):
         objects.filter.assert_called_with(title='')
         articles.update.assert_called_with(title='new_val')
 
-    @timeit
     @patch('core.models.Article.objects')
     def test_patch_orm_v2(self, objects):
         """
